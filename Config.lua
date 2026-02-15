@@ -280,7 +280,13 @@ function SaveManager:Load(name)
     local parser = self.Parser
     if decoded.objects and type(decoded.objects) == "table" then
         for _, option in pairs(decoded.objects) do
-            if option and option.type and parser[option.type] then
+            if option and option.type and option.type ~= "Toggle" and parser[option.type] then
+                pcall(parser[option.type].Load, option.idx, option)
+            end
+        end
+        
+        for _, option in pairs(decoded.objects) do
+            if option and option.type == "Toggle" and parser[option.type] then
                 pcall(parser[option.type].Load, option.idx, option)
             end
         end
