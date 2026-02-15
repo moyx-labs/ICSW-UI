@@ -268,7 +268,7 @@ function SaveManager:Load(name)
     if decoded.PlaceId and decoded.PlaceId ~= game.PlaceId then
         if self.WindUI then 
             self.WindUI:Notify({
-                Title = "Error", 
+                Title = "Config", 
                 Content = "PlaceId Mismatch", 
                 Duration = 5, 
                 Icon = "rbxassetid://17368208554"
