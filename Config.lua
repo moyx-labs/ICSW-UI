@@ -417,6 +417,22 @@ end
 
 function SaveManager:BuildConfigSection(tab)
     self:BuildFolderTree()
+
+        if self.Library and not self.Library.Options["MinimizeKeyBind"] then
+        local interfaceSection = tab:AddSection("Interface")
+        
+        interfaceSection:AddKeybind("MinimizeKeyBind", {
+            Title = "Minimize Key",
+            Description = "Hide UI",
+            Default = "LeftAlt",
+            ChangedCallback = function(NewKey)
+                if self.Library then
+                    self.Library.MinimizeKey = NewKey
+                end
+            end
+        })
+    end
+
     local section = tab:AddSection("Configuration")
     
     local AutoloadButton 
