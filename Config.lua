@@ -635,4 +635,192 @@ function SaveManager:BuildConfigSection(tab)
     })
 end
 
+-- ================================================================
+-- Mics Tab
+-- ================================================================
+function SaveManager:BuildMiscSection(tab)
+    local Players = game:GetService("Players")
+    local LP = Players.LocalPlayer
+
+    -- ================================================================
+    -- Player
+    -- ================================================================
+    local PlayerSection = tab:AddSection("Player")
+
+    local WalkToggle = PlayerSection:AddToggle("WalkToggle", {
+        Title       = "Walk",
+        Description = "",
+        Default     = false,
+        Callback    = function(Value)
+            getgenv().ICSW_WalkEnabled = Value
+            local char = LP.Character
+            local hum = char and char:FindFirstChild("Humanoid")
+            if hum then
+                if Value then
+                    getgenv().ICSW_OriginalWalkSpeed = hum.WalkSpeed
+                else
+                    hum.WalkSpeed = getgenv().ICSW_OriginalWalkSpeed or 16
+                end
+            end
+        end,
+    })
+    WalkToggle:Keybind("Key_Walk_New", {Default=Enum.KeyCode.F1, Mode="Toggle"})
+
+    local WalkSlider = PlayerSection:AddSlider("WalkSlider", {
+        Title       = "Speed",
+        Description = "",
+        Default     = 20,
+        Min         = 16,
+        Max         = 150,
+        Rounding    = 0,
+        Callback    = function(Value)
+            getgenv().ICSW_WalkSpeed = Value
+        end,
+    })
+
+    local FlyToggle = PlayerSection:AddToggle("FlyToggle", {
+        Title       = "Fly",
+        Description = "",
+        Default     = false,
+        Callback    = function(Value)
+            getgenv().ICSW_FlyEnabled = Value
+        end,
+    })
+    FlyToggle:Keybind("Key_Fly_New", {Default=Enum.KeyCode.F2, Mode="Toggle"})
+
+    local FlySlider = PlayerSection:AddSlider("FlySlider", {
+        Title       = "Speed",
+        Description = "",
+        Default     = 50,
+        Min         = 10,
+        Max         = 500,
+        Rounding    = 0,
+        Callback    = function(Value)
+            getgenv().ICSW_FlySpeed = Value
+        end,
+    })
+
+    local JumpToggle = PlayerSection:AddToggle("JumpToggle", {
+        Title       = "Jump",
+        Description = "",
+        Default     = false,
+        Callback    = function(Value)
+            getgenv().ICSW_InfJumpEnabled = Value
+        end,
+    })
+    JumpToggle:Keybind("Key_Jump_New", {Default=Enum.KeyCode.F3, Mode="Toggle"})
+
+    local NoclipToggle = PlayerSection:AddToggle("NoclipToggle", {
+        Title       = "Noclip",
+        Description = "",
+        Default     = false,
+        Callback    = function(Value)
+            getgenv().ICSW_NoclipEnabled = Value
+        end,
+    })
+    NoclipToggle:Keybind("Key_Noclip_New", {Default=Enum.KeyCode.F4, Mode="Toggle"})
+
+    -- ================================================================
+    -- Visuals
+    -- ================================================================
+    local VisualsSection = tab:AddSection("Visuals")
+
+    local ESPToggle = VisualsSection:AddToggle("ESPToggle", {
+        Title       = "Player ESP",
+        Description = "",
+        Default     = false,
+        Callback    = function(Value)
+            getgenv().ICSW_ESPEnabled = Value
+            if not Value and getgenv().ICSW_ESPInstances then
+                for _, esp in pairs(getgenv().ICSW_ESPInstances) do
+                    if esp.Folder then esp.Folder:Destroy() end
+                end
+                table.clear(getgenv().ICSW_ESPInstances)
+            end
+        end,
+    })
+
+    local ESPColor = VisualsSection:AddColorpicker("ESPColor", {
+        Title          = "ESP Color",
+        Description    = "",
+        Default        = Color3.fromRGB(255, 182, 211),
+        Transparency   = 0,
+        Callback       = function(Color)
+            getgenv().ICSW_ESPColor = Color
+        end,
+    })
+
+    -- ================================================================
+    -- Spectator
+    -- ================================================================
+    local SpectatorSection = tab:AddSection("Spectator")
+
+    local function GetPlayersList()
+        local list = {}
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LP then
+                table.insert(list, p.Name)
+            end
+        end
+        table.sort(list)
+        return list
+    end
+
+    getgenv().ICSW_SpectatorDropdown = SpectatorSection:AddDropdown("SpectatorDropdown", {
+        Title             = "Select Player",
+        Description       = "",
+        Values            = GetPlayersList(),
+        Default           = "", 
+        Multi             = false,
+        Searchable        = true,
+        Callback          = function(Value)
+            getgenv().ICSW_SpectateTarget = Value
+            local cam = workspace.CurrentCamera
+            if Value and Value ~= "" then
+                local target = Players:FindFirstChild(Value)
+                if target and target.Character and target.Character:FindFirstChild("Humanoid") then
+                    cam.CameraSubject = target.Character.Humanoid
+                end
+            else
+                if LP.Character and LP.Character:FindFirstChild("Humanoid") then
+                    cam.CameraSubject = LP.Character.Humanoid
+                end
+            end
+        end,
+    })
+
+    -- ================================================================
+    -- Security
+    -- ================================================================
+    local SecuritySection = tab:AddSection("Security")
+
+    local hasAdminIDs = false
+    if getgenv().ICSW_AdminIDs and type(getgenv().ICSW_AdminIDs) == "table" then
+        for _, _ in pairs(getgenv().ICSW_AdminIDs) do
+            hasAdminIDs = true
+            break
+        end
+    end
+
+    local AntiAdminToggle = SecuritySection:AddToggle("AntiAdminToggle", {
+        Title       = "Anti-Admin",
+        Description = "",
+        Default     = hasAdminIDs,
+        Callback    = function(Value)
+            getgenv().ICSW_AntiAdminEnabled = Value
+            if Value and getgenv().ICSW_AdminIDs then
+                for _, player in ipairs(Players:GetPlayers()) do
+                    if getgenv().ICSW_AdminIDs[player.UserId] then
+                        LP:Kick(string.format("Admin Detect (%d - %s)", player.UserId, player.Name))
+                    end
+                end
+            end
+        end,
+    })
+
+    if not hasAdminIDs then
+        AntiAdminToggle:Lock("founder didnt set")
+    end
+end
+
 return SaveManager
