@@ -636,14 +636,292 @@ function SaveManager:BuildConfigSection(tab)
 end
 
 -- ================================================================
--- Mics Tab
+-- Mics Tab (Engine + UI)
 -- ================================================================
 function SaveManager:BuildMiscSection(tab)
     local Players = game:GetService("Players")
     local LP = Players.LocalPlayer
+    local RunService = game:GetService("RunService")
+    local UserInputService = game:GetService("UserInputService")
+
+    getgenv().ICSW_ESPEnabled = false
+    getgenv().ICSW_ESPColor = Color3.fromRGB(255, 182, 211)
+    getgenv().ICSW_ESPInstances = getgenv().ICSW_ESPInstances or {}
+    getgenv().ICSW_WalkEnabled = false
+    getgenv().ICSW_OriginalWalkSpeed = 16
+    getgenv().ICSW_WalkSpeed = 50
+    getgenv().ICSW_InfJumpEnabled = false
+    getgenv().ICSW_FlyEnabled = false
+    getgenv().ICSW_FlySpeed = 50
+    getgenv().ICSW_NoclipEnabled = false
+    getgenv().ICSW_SpectateTarget = ""
+    getgenv().ICSW_AntiAdminEnabled = false
 
     -- ================================================================
-    -- Player
+    -- [Engine] Speed Hook
+    -- ================================================================
+    if not getgenv().ICSW_WalkSpeedHook then
+        getgenv().ICSW_WalkSpeedHook = true
+        local oldIndex
+        oldIndex = hookmetamethod(game, "__index", function(self, key)
+            if not checkcaller() and self:IsA("Humanoid") and key == "WalkSpeed" then
+                return 16
+            end
+            return oldIndex(self, key)
+        end)
+    end
+
+    -- ================================================================
+    -- [Engine] Player (Walk, Jump, Fly, Noclip)
+    -- ================================================================
+    if getgenv().ICSW_PlayerLoop then getgenv().ICSW_PlayerLoop:Disconnect() end
+    getgenv().ICSW_PlayerLoop = RunService.RenderStepped:Connect(function()
+        local char = LP.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        local hum = char and char:FindFirstChild("Humanoid")
+
+        if char and hrp and hum then
+            if getgenv().ICSW_WalkEnabled then
+                hum.WalkSpeed = getgenv().ICSW_WalkSpeed
+            end
+
+            local flyBV = hrp:FindFirstChild("ICSW_FlyBV")
+            local flyBG = hrp:FindFirstChild("ICSW_FlyBG")
+
+            if getgenv().ICSW_FlyEnabled then
+                if not flyBV then
+                    flyBV = Instance.new("BodyVelocity")
+                    flyBV.Name = "ICSW_FlyBV"
+                    flyBV.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+                    flyBV.Parent = hrp
+
+                    flyBG = Instance.new("BodyGyro")
+                    flyBG.Name = "ICSW_FlyBG"
+                    flyBG.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+                    flyBG.P = 9e4
+                    flyBG.Parent = hrp
+                end
+
+                local cam = workspace.CurrentCamera
+                flyBG.CFrame = cam.CFrame
+                
+                local moveDir = Vector3.new()
+                if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + cam.CFrame.LookVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - cam.CFrame.LookVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + cam.CFrame.RightVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - cam.CFrame.RightVector end
+                
+                if moveDir.Magnitude > 0 then
+                    flyBV.Velocity = moveDir.Unit * getgenv().ICSW_FlySpeed
+                else
+                    flyBV.Velocity = Vector3.zero
+                end
+            else
+                if flyBV then flyBV:Destroy() end
+                if flyBG then flyBG:Destroy() end
+            end
+        end
+    end)
+
+    if getgenv().ICSW_JumpRequestConn then getgenv().ICSW_JumpRequestConn:Disconnect() end
+    getgenv().ICSW_JumpRequestConn = UserInputService.JumpRequest:Connect(function()
+        if getgenv().ICSW_InfJumpEnabled then
+            local char = LP.Character
+            local hum = char and char:FindFirstChild("Humanoid")
+            if hum then
+                hum:ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+        end
+    end)
+
+    if getgenv().ICSW_NoclipLoop then getgenv().ICSW_NoclipLoop:Disconnect() end
+    getgenv().ICSW_NoclipLoop = RunService.Stepped:Connect(function()
+        if getgenv().ICSW_AutoFarm or getgenv().ICSW_NoclipEnabled then
+            local char = LP.Character
+            if char then
+                for _, part in ipairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") and part.CanCollide then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end
+    end)
+
+    -- ================================================================
+    -- [Engine] ESP Function
+    -- ================================================================
+    local function RGBToHex(color)
+        return string.format("#%02X%02X%02X", math.clamp(color.R * 255, 0, 255), math.clamp(color.G * 255, 0, 255), math.clamp(color.B * 255, 0, 255))
+    end
+
+    local function GetHealthHex(health, maxHealth, defaultColor)
+        local pct = math.clamp(health / maxHealth, 0, 1)
+        if pct >= 0.99 then return RGBToHex(defaultColor)
+        elseif pct >= 0.7 then return "#AFFF00" 
+        elseif pct >= 0.4 then return "#FFFF00" 
+        elseif pct >= 0.25 then return "#FF8800" 
+        else return "#FF0000" end
+    end
+
+    local function ClearESP()
+        if getgenv().ICSW_ESPInstances then
+            for _, esp in pairs(getgenv().ICSW_ESPInstances) do
+                if esp.Folder then esp.Folder:Destroy() end
+            end
+            table.clear(getgenv().ICSW_ESPInstances)
+        end
+    end
+
+    if getgenv().ICSW_ESPLoop then task.cancel(getgenv().ICSW_ESPLoop) end
+    getgenv().ICSW_ESPLoop = task.spawn(function()
+        while task.wait(0.1) do
+            if not getgenv().ICSW_ESPEnabled then
+                if getgenv().ICSW_ESPInstances and next(getgenv().ICSW_ESPInstances) then
+                    ClearESP()
+                end
+                continue
+            end
+
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player == LP then continue end
+                
+                local char = player.Character
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                local hum = char and char:FindFirstChild("Humanoid")
+
+                if char and hrp and hum and hum.Health > 0 then
+                    if not getgenv().ICSW_ESPInstances[player] then
+                        local espGroup = Instance.new("Folder")
+                        espGroup.Name = "ESP_" .. player.Name
+                        
+                        local hl = Instance.new("Highlight")
+                        hl.Adornee = char
+                        hl.FillColor = getgenv().ICSW_ESPColor
+                        hl.OutlineColor = getgenv().ICSW_ESPColor
+                        hl.FillTransparency = 0.6
+                        hl.OutlineTransparency = 0
+                        hl.Parent = espGroup
+
+                        local bg = Instance.new("BillboardGui")
+                        bg.Adornee = hrp
+                        bg.Size = UDim2.new(0, 200, 0, 50)
+                        bg.StudsOffset = Vector3.new(0, 3.5, 0)
+                        bg.AlwaysOnTop = true
+
+                        local tl = Instance.new("TextLabel")
+                        tl.Size = UDim2.new(1, 0, 1, 0)
+                        tl.BackgroundTransparency = 1
+                        tl.TextStrokeTransparency = 0.3
+                        tl.TextColor3 = getgenv().ICSW_ESPColor
+                        tl.TextScaled = false
+                        tl.TextSize = 13
+                        tl.RichText = true
+                        tl.Font = Enum.Font.SourceSansBold
+                        tl.Parent = bg
+                        
+                        bg.Parent = espGroup
+                        
+                        local target = (gethui and gethui()) or game:GetService("CoreGui")
+                        local success = pcall(function() espGroup.Parent = target end)
+                        if not success then espGroup.Parent = LP:WaitForChild("PlayerGui") end
+
+                        getgenv().ICSW_ESPInstances[player] = {
+                            Folder = espGroup,
+                            Highlight = hl,
+                            TextLabel = tl,
+                            Character = char
+                        }
+                    else
+                        local esp = getgenv().ICSW_ESPInstances[player]
+                        if esp.Character ~= char then
+                            esp.Folder:Destroy()
+                            getgenv().ICSW_ESPInstances[player] = nil
+                        else
+                            esp.Highlight.FillColor = getgenv().ICSW_ESPColor
+                            esp.Highlight.OutlineColor = getgenv().ICSW_ESPColor
+                            esp.TextLabel.TextColor3 = getgenv().ICSW_ESPColor
+                            
+                            local hpHex = GetHealthHex(hum.Health, hum.MaxHealth, getgenv().ICSW_ESPColor)
+                            esp.TextLabel.Text = string.format("%s\n<font color=\"%s\">[%.0f / %.0f]</font>", player.Name, hpHex, hum.Health, hum.MaxHealth)
+                        end
+                    end
+                else
+                    if getgenv().ICSW_ESPInstances[player] then
+                        getgenv().ICSW_ESPInstances[player].Folder:Destroy()
+                        getgenv().ICSW_ESPInstances[player] = nil
+                    end
+                end
+            end
+
+            for plr, esp in pairs(getgenv().ICSW_ESPInstances) do
+                if not plr.Parent then
+                    esp.Folder:Destroy()
+                    getgenv().ICSW_ESPInstances[plr] = nil
+                end
+            end
+        end
+    end)
+
+    -- ================================================================
+    -- [Engine] Spectator Function
+    -- ================================================================
+    local function GetPlayersList()
+        local list = {}
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LP then
+                table.insert(list, p.Name)
+            end
+        end
+        table.sort(list)
+        return list
+    end
+
+    if getgenv().ICSW_SpectateLoop then task.cancel(getgenv().ICSW_SpectateLoop) end
+    getgenv().ICSW_SpectateLoop = task.spawn(function()
+        while task.wait(1) do
+            if getgenv().ICSW_SpectatorDropdown then
+                getgenv().ICSW_SpectatorDropdown:SetValues(GetPlayersList())
+                
+                local targetName = getgenv().ICSW_SpectateTarget
+                local cam = workspace.CurrentCamera
+                
+                if targetName and targetName ~= "" then
+                    local target = Players:FindFirstChild(targetName)
+                    if target and target.Character and target.Character:FindFirstChild("Humanoid") then
+                        if cam.CameraSubject ~= target.Character.Humanoid then
+                            cam.CameraSubject = target.Character.Humanoid
+                        end
+                    else
+                        if LP.Character and LP.Character:FindFirstChild("Humanoid") then
+                            cam.CameraSubject = LP.Character.Humanoid
+                        end
+                    end
+                else
+                    if LP.Character and LP.Character:FindFirstChild("Humanoid") and cam.CameraSubject ~= LP.Character.Humanoid then
+                        cam.CameraSubject = LP.Character.Humanoid
+                    end
+                end
+            end
+        end
+    end)
+
+    -- ================================================================
+    -- [Engine] Anti-Admin Functions & Event
+    -- ================================================================
+    local function CheckForAdmin(player)
+        if getgenv().ICSW_AntiAdminEnabled and getgenv().ICSW_AdminIDs and getgenv().ICSW_AdminIDs[player.UserId] then
+            LP:Kick(string.format("Admin Detect (%d - %s)", player.UserId, player.Name))
+        end
+    end
+
+    if getgenv().ICSW_AdminCheckConn then getgenv().ICSW_AdminCheckConn:Disconnect() end
+    getgenv().ICSW_AdminCheckConn = Players.PlayerAdded:Connect(function(player)
+        CheckForAdmin(player)
+    end)
+
+    -- ================================================================
+    -- [UI] Player Section
     -- ================================================================
     local PlayerSection = tab:AddSection("Player")
 
@@ -721,7 +999,7 @@ function SaveManager:BuildMiscSection(tab)
     NoclipToggle:Keybind("Key_Noclip_New", {Default=Enum.KeyCode.F4, Mode="Toggle"})
 
     -- ================================================================
-    -- Visuals
+    -- [UI] Visuals Section
     -- ================================================================
     local VisualsSection = tab:AddSection("Visuals")
 
@@ -731,11 +1009,8 @@ function SaveManager:BuildMiscSection(tab)
         Default     = false,
         Callback    = function(Value)
             getgenv().ICSW_ESPEnabled = Value
-            if not Value and getgenv().ICSW_ESPInstances then
-                for _, esp in pairs(getgenv().ICSW_ESPInstances) do
-                    if esp.Folder then esp.Folder:Destroy() end
-                end
-                table.clear(getgenv().ICSW_ESPInstances)
+            if not Value then
+                ClearESP()
             end
         end,
     })
@@ -751,20 +1026,9 @@ function SaveManager:BuildMiscSection(tab)
     })
 
     -- ================================================================
-    -- Spectator
+    -- [UI] Spectator Section
     -- ================================================================
     local SpectatorSection = tab:AddSection("Spectator")
-
-    local function GetPlayersList()
-        local list = {}
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= LP then
-                table.insert(list, p.Name)
-            end
-        end
-        table.sort(list)
-        return list
-    end
 
     getgenv().ICSW_SpectatorDropdown = SpectatorSection:AddDropdown("SpectatorDropdown", {
         Title             = "Select Player",
@@ -790,7 +1054,7 @@ function SaveManager:BuildMiscSection(tab)
     })
 
     -- ================================================================
-    -- Security
+    -- [UI] Security Section
     -- ================================================================
     local SecuritySection = tab:AddSection("Security")
 
