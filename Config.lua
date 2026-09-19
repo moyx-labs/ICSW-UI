@@ -1085,6 +1085,47 @@ function SaveManager:BuildMiscSection(tab)
     if not hasAdminIDs then
         AntiAdminToggle:Lock("founder didnt set")
     end
+	
+	-- ================================================================
+    -- Cleanup
+    -- ================================================================
+    if self.Library and self.Library.OnUnload then
+        self.Library.OnUnload:Connect(function()
+            getgenv().ICSW_ESPEnabled = false
+            if getgenv().ICSW_ESPLoop then task.cancel(getgenv().ICSW_ESPLoop) end
+            ClearESP()
+            
+            getgenv().ICSW_WalkEnabled = false
+            getgenv().ICSW_FlyEnabled = false
+            getgenv().ICSW_InfJumpEnabled = false
+            getgenv().ICSW_NoclipEnabled = false
+            
+            if getgenv().ICSW_PlayerLoop then getgenv().ICSW_PlayerLoop:Disconnect() end
+            if getgenv().ICSW_NoclipLoop then getgenv().ICSW_NoclipLoop:Disconnect() end
+            if getgenv().ICSW_SpectateLoop then task.cancel(getgenv().ICSW_SpectateLoop) end
+            if getgenv().ICSW_JumpRequestConn then getgenv().ICSW_JumpRequestConn:Disconnect() end
+            if getgenv().ICSW_AdminCheckConn then getgenv().ICSW_AdminCheckConn:Disconnect() end
+
+            local char = LP.Character
+            local hum = char and char:FindFirstChild("Humanoid")
+            if hum then hum.WalkSpeed = getgenv().ICSW_OriginalWalkSpeed or 16 end
+            
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local flyBV = hrp:FindFirstChild("ICSW_FlyBV")
+                local flyBG = hrp:FindFirstChild("ICSW_FlyBG")
+                if flyBV then flyBV:Destroy() end
+                if flyBG then flyBG:Destroy() end
+            end
+            
+            local cam = workspace.CurrentCamera
+            if char and hum and cam.CameraSubject ~= hum then
+                cam.CameraSubject = hum
+            end
+            
+            getgenv().ICSW_WalkSpeedHook = false
+        end)
+    end
 end
 
 return SaveManager
