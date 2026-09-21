@@ -3,7 +3,6 @@ local SaveManager = {}
 
 SaveManager.Folder = "ICSW/Default"
 SaveManager.Ignore = {}
-SaveManager.WindUI = nil
 SaveManager._cache = {}
 SaveManager._lastRefresh = 0
 
@@ -93,9 +92,8 @@ SaveManager.Parser = {
     },
 }
 
-function SaveManager:SetLibrary(library, windui)
+function SaveManager:SetLibrary(library)
     self.Library = library
-    self.WindUI = windui or getgenv().WindUI_Notification
 end
 
 function SaveManager:IgnoreThemeSettings()
@@ -266,12 +264,12 @@ function SaveManager:Load(name)
     end
     
     if decoded.PlaceId and decoded.PlaceId ~= game.PlaceId then
-        if self.WindUI then 
-            self.WindUI:Notify({
+        if self.Library then 
+            self.Library:Notify({
                 Title = "Config", 
                 Content = "PlaceId Mismatch", 
                 Duration = 5, 
-                Icon = "rbxassetid://17368208554"
+                Icon = "ERROR"
             }) 
         end
         return false, "PlaceId Mismatch"
@@ -456,12 +454,12 @@ function SaveManager:BuildConfigSection(tab)
             if not name or name:gsub(" ", "") == "" then return end
             
             if name == "Default" then
-                if self.WindUI then 
-                    self.WindUI:Notify({
+                if self.Library then 
+                    self.Library:Notify({
                         Title = "Error", 
                         Content = "Cannot Create Default", 
                         Duration = 3, 
-                        Icon = "rbxassetid://17368208554"
+                        Icon = "ERROR"
                     }) 
                 end
                 return
@@ -475,12 +473,12 @@ function SaveManager:BuildConfigSection(tab)
                     ConfigDropdown:SetValue(nil)
                 end)
                 
-                if self.WindUI then 
-                    self.WindUI:Notify({
+                if self.Library then 
+                    self.Library:Notify({
                         Title = "Config", 
                         Content = "Created: " .. name, 
                         Duration = 3, 
-                        Icon = "rbxassetid://17368190066"
+                        Icon = "SUCCESS"
                     }) 
                 end
             end
@@ -495,12 +493,12 @@ function SaveManager:BuildConfigSection(tab)
             
             local success = self:Load(name)
             
-            if success and self.WindUI then 
-                self.WindUI:Notify({
+            if success and self.Library then 
+                self.Library:Notify({
                     Title = "Config", 
                     Content = "Loaded: " .. name, 
                     Duration = 3, 
-                    Icon = "rbxassetid://17368190066"
+                    Icon = "SUCCESS"
                 }) 
             end
         end
@@ -513,12 +511,12 @@ function SaveManager:BuildConfigSection(tab)
             if not name then return end
             
             if name == "Default" then
-                if self.WindUI then 
-                    self.WindUI:Notify({
+                if self.Library then 
+                    self.Library:Notify({
                         Title = "Error", 
                         Content = "Cannot Overwrite Default", 
                         Duration = 3, 
-                        Icon = "rbxassetid://17368208554"
+                        Icon = "ERROR"
                     }) 
                 end
                 return
@@ -526,12 +524,12 @@ function SaveManager:BuildConfigSection(tab)
             
             local success = self:Save(name)
             
-            if success and self.WindUI then 
-                self.WindUI:Notify({
+            if success and self.Library then 
+                self.Library:Notify({
                     Title = "Config", 
                     Content = "Overwritten: " .. name, 
                     Duration = 3, 
-                    Icon = "rbxassetid://17368190066"
+                    Icon = "SUCCESS"
                 }) 
             end
         end
@@ -544,12 +542,12 @@ function SaveManager:BuildConfigSection(tab)
             if not name then return end
             
             if name == "Default" then
-                if self.WindUI then 
-                    self.WindUI:Notify({
+                if self.Library then 
+                    self.Library:Notify({
                         Title = "Error", 
                         Content = "Cannot Delete Default", 
                         Duration = 3, 
-                        Icon = "rbxassetid://17368208554"
+                        Icon = "ERROR"
                     }) 
                 end
                 return
@@ -574,12 +572,12 @@ function SaveManager:BuildConfigSection(tab)
                     ConfigDropdown:SetValue(nil)
                 end)
                 
-                if self.WindUI then 
-                    self.WindUI:Notify({
+                if self.Library then 
+                    self.Library:Notify({
                         Title = "Config", 
                         Content = "Deleted: " .. name, 
                         Duration = 3, 
-                        Icon = "rbxassetid://17368190066"
+                        Icon = "SUCCESS"
                     }) 
                 end
             end
@@ -594,12 +592,12 @@ function SaveManager:BuildConfigSection(tab)
             if not name then return end
             
             if name == "Default" then
-                if self.WindUI then 
-                    self.WindUI:Notify({
+                if self.Library then 
+                    self.Library:Notify({
                         Title = "Error", 
                         Content = "Cannot Autoload Default", 
                         Duration = 3, 
-                        Icon = "rbxassetid://17368208554"
+                        Icon = "ERROR"
                     }) 
                 end
                 return
@@ -610,12 +608,12 @@ function SaveManager:BuildConfigSection(tab)
             if success then
                 AutoloadButton:SetDesc("Current: " .. name)
                 
-                if self.WindUI then 
-                    self.WindUI:Notify({
+                if self.Library then 
+                    self.Library:Notify({
                         Title = "Autoload", 
                         Content = "Set: " .. name, 
                         Duration = 3, 
-                        Icon = "rbxassetid://17368190066"
+                        Icon = "SUCCESS"
                     }) 
                 end
             end
